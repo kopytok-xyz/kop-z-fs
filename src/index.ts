@@ -2,6 +2,7 @@
 // import { func_interactiveZone } from '$utils/interactive-zone';
 import { func_buttonTextToggl } from '$utils/button-text-toggl';
 import { func_collapseButtons } from '$utils/collapse-buttons';
+import { func_fav } from '$utils/fav';
 import { func_cardFly } from '$utils/func_card-fly';
 import { func_heightTransition } from '$utils/height-transition';
 import { func_heroForm } from '$utils/hero-form';
@@ -30,5 +31,6 @@ window.Webflow.push(() => {
   func_mindConnectionsLeader();
   func_cardFly();
   func_testimonialsGrid();
+  func_fav();
   // func_portfolioTable();
 });
