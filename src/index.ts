@@ -28,7 +28,7 @@ window.Webflow.push(() => {
   func_statsHero();
   func_yearCounter();
   func_togglClassTriggerTarget();
-  func_mindConnectionsLeader();
+  // func_mindConnectionsLeader();
   func_cardFly();
   func_testimonialsGrid();
   func_fav();
