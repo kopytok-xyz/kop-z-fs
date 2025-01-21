@@ -1,9 +1,10 @@
+import { log } from 'console';
 import * as esbuild from 'esbuild';
-import { readdirSync } from 'fs';
-import { join, sep } from 'path';
+import { readdirSync, rmSync } from 'fs';
+import { join, relative, sep } from 'path';
 
 // Config output
-const BUILD_DIRECTORY = 'dist';
+const BUILD_DIRECTORY = 'dist/assets';
 const PRODUCTION = process.env.NODE_ENV === 'production';
 
 // Config entrypoint files
@@ -15,22 +16,40 @@ const SERVE_PORT = 3000;
 const SERVE_ORIGIN = `http://localhost:${SERVE_PORT}`;
 
 // Create context
-const context = await esbuild.context({
-  bundle: true,
+const baseConfig = {
   entryPoints: ENTRY_POINTS,
   outdir: BUILD_DIRECTORY,
+  bundle: true,
   minify: PRODUCTION,
   sourcemap: !PRODUCTION,
   target: PRODUCTION ? 'es2020' : 'esnext',
-  inject: LIVE_RELOAD ? ['./bin/live-reload.js'] : undefined,
   define: {
     SERVE_ORIGIN: JSON.stringify(SERVE_ORIGIN),
   },
+};
+
+const prodConfig = {
+  entryNames: '[name]-[hash]',
+  chunkNames: '[name]-[hash]',
+  assetNames: '[name]-[hash]',
+};
+
+rmSync(BUILD_DIRECTORY, { recursive: true, force: true });
+
+const context = await esbuild.context({
+  ...baseConfig,
+  ...(PRODUCTION ? prodConfig : {}),
+  metafile: true,
+  inject: LIVE_RELOAD ? ['./bin/live-reload.js'] : undefined,
 });
 
 // Build files in prod
 if (PRODUCTION) {
-  await context.rebuild();
+  const result = await context.rebuild();
+  const mainFile = Object.keys(result.metafile.outputs).find(
+    (file) => file.endsWith('.js') && !file.endsWith('.map')
+  );
+  log(mainFile);
   context.dispose();
 }
 
@@ -39,7 +58,7 @@ else {
   await context.watch();
   await context
     .serve({
-      servedir: BUILD_DIRECTORY,
+      servedir: process.cwd(),
       port: SERVE_PORT,
     })
     .then(logServedFiles);
@@ -49,33 +68,24 @@ else {
  * Logs information about the files that are being served during local development.
  */
 function logServedFiles() {
-  /**
-   * Recursively gets all files in a directory.
-   * @param {string} dirPath
-   * @returns {string[]} An array of file paths.
-   */
   const getFiles = (dirPath) => {
     const files = readdirSync(dirPath, { withFileTypes: true }).map((dirent) => {
-      const path = join(dirPath, dirent.name);
-      return dirent.isDirectory() ? getFiles(path) : path;
+      const filePath = join(dirPath, dirent.name);
+      return dirent.isDirectory() ? getFiles(filePath) : filePath;
     });
-
     return files.flat();
   };
 
   const files = getFiles(BUILD_DIRECTORY);
 
   const filesInfo = files
+    .filter((file) => !file.endsWith('.map'))
     .map((file) => {
-      if (file.endsWith('.map')) return;
+      // Получаем путь относительно папки servedir ('dist')
+      const relativePath = relative('dist', file).split(sep).join('/');
+      const location = `${SERVE_ORIGIN}/${relativePath}`;
 
-      // Normalize path and create file location
-      const paths = file.split(sep);
-      paths[0] = SERVE_ORIGIN;
-
-      const location = paths.join('/');
-
-      // Create import suggestion
+      // Импорт-сниппет
       const tag = location.endsWith('.css')
         ? `<link href="${location}" rel="stylesheet" type="text/css"/>`
         : `<script defer src="${location}"></script>`;
@@ -84,9 +94,7 @@ function logServedFiles() {
         'File Location': location,
         'Import Suggestion': tag,
       };
-    })
-    .filter(Boolean);
+    });
 
-  // eslint-disable-next-line no-console
   console.table(filesInfo);
 }

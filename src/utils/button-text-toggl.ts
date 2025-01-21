@@ -1,5 +1,7 @@
 // https://chatgpt.com/c/670d0603-7358-8002-8d85-c28096dce66c
 export const func_buttonTextToggl = () => {
+  console.log('test11!!!!!');
+
   const all_newAlements = document.querySelectorAll('[button-text-toggl]');
   if (all_newAlements.length) {
     all_newAlements.forEach((button) => {
